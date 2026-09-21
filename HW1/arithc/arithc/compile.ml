@@ -32,26 +32,24 @@ let compile_expr =
     | Cst i ->
         pushq (imm i)
     | Var x ->
-        (* a local variable shadows a global one of the same name *)
+        (* local shadows global *)
         (try
            pushq (ind ~ofs:(StrMap.find x env) rbp)
          with Not_found ->
            if not (Hashtbl.mem genv x) then raise (VarUndef x);
            pushq (lab x))
     | Binop (o, e1, e2)->
-        (* left operand, then right operand; both end up on the stack,
-           the right one on top *)
+        (* e1 then e2 on the stack; %rcx: caller-saved scratch *)
         comprec env next e1 ++
         comprec env next e2 ++
-        popq rbx ++
+        popq rcx ++
         popq rax ++
         (match o with
-           | Add -> addq !%rbx !%rax
-           | Sub -> subq !%rbx !%rax
-           | Mul -> imulq !%rbx !%rax
-           (* cqto sign-extends %rax into %rdx:%rax, as idivq requires;
-              the quotient is left in %rax *)
-           | Div -> cqto ++ idivq !%rbx) ++
+           | Add -> addq !%rcx !%rax
+           | Sub -> subq !%rcx !%rax
+           | Mul -> imulq !%rcx !%rax
+           (* sign-extend for idivq *)
+           | Div -> cqto ++ idivq !%rcx) ++
         pushq !%rax
     | Letin (x, e1, e2) ->
         if !frame_size = next then frame_size := 8 + !frame_size;
@@ -66,8 +64,7 @@ let compile_expr =
 (* Compilation of an instruction *)
 let compile_instr = function
   | Set (x, e) ->
-      (* e is compiled first, so that "set x = x + 1" on an undeclared x
-         is still reported as an error *)
+      (* compile e first: catch undefined x *)
       let code = compile_expr e in
       Hashtbl.replace genv x ();
       code ++

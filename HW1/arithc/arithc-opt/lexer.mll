@@ -4,7 +4,6 @@
 {
   (* code OCaml *)
 
-{
   open Lexing
   open Parser
 

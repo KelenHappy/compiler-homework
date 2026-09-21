@@ -1,9 +1,6 @@
 
 
-(* Code production for the language Arith
-   -- optional question: the value of an expression is left in %rax
-      instead of on top of the stack, so that only the results of
-      left-hand side subexpressions ever reach the stack. *)
+(* Code production for Arith -- optional question: value in %rax *)
 
 open Format
 open X86_64
@@ -25,39 +22,34 @@ let (genv : (string, unit) Hashtbl.t) = Hashtbl.create 17
 module StrMap = Map.Make(String)
 
 
-(* Compilation of an expression: at the end of the generated code the
-   value of the expression is in %rax *)
+(* Compilation of an expression: value left in %rax *)
 let compile_expr =
   let rec comprec env next = function
     | Cst i ->
         movq (imm i) !%rax
     | Var x ->
-        (* a local variable shadows a global one of the same name *)
+        (* local shadows global *)
         (try
            movq (ind ~ofs:(StrMap.find x env) rbp) !%rax
          with Not_found ->
            if not (Hashtbl.mem genv x) then raise (VarUndef x);
            movq (lab x) !%rax)
     | Binop (o, e1, e2)->
-        (* only the left operand has to be saved on the stack, while the
-           right one is being evaluated; the right one stays in %rax *)
+        (* only e1 reaches the stack; %rcx: caller-saved scratch *)
         comprec env next e1 ++
         pushq !%rax ++
         comprec env next e2 ++
-        movq !%rax !%rbx ++
+        movq !%rax !%rcx ++
         popq rax ++
         (match o with
-           | Add -> addq !%rbx !%rax
-           | Sub -> subq !%rbx !%rax
-           | Mul -> imulq !%rbx !%rax
-           (* cqto sign-extends %rax into %rdx:%rax, as idivq requires;
-              the quotient is left in %rax *)
-           | Div -> cqto ++ idivq !%rbx)
+           | Add -> addq !%rcx !%rax
+           | Sub -> subq !%rcx !%rax
+           | Mul -> imulq !%rcx !%rax
+           (* sign-extend for idivq *)
+           | Div -> cqto ++ idivq !%rcx)
     | Letin (x, e1, e2) ->
         if !frame_size = next then frame_size := 8 + !frame_size;
         let ofs = - next - 8 in
-        (* no stack traffic at all here: the value of e1 goes straight
-           from %rax to the slot reserved for x *)
         comprec env next e1 ++
         movq !%rax (ind ~ofs rbp) ++
         comprec (StrMap.add x ofs env) (next + 8) e2
@@ -67,8 +59,7 @@ let compile_expr =
 (* Compilation of an instruction *)
 let compile_instr = function
   | Set (x, e) ->
-      (* e is compiled first, so that "set x = x + 1" on an undeclared x
-         is still reported as an error *)
+      (* compile e first: catch undefined x *)
       let code = compile_expr e in
       Hashtbl.replace genv x ();
       code ++

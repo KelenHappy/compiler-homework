@@ -1,16 +1,11 @@
-	# Question 1.5 -- local variables on the stack
-	#   print (let x = 3 in x * x)                                    ->  9
-	#   print (let x = 3 in (let y = x+x in x*y) + (let z = x+3 in z/z))  -> 19
-	#
-	# frame layout (relative to %rbp):
-	#   -8   x        -24  z
-	#   -16  y        -32  temporary (left operand of the last +)
+	# Q1.5 locals -> 9, 19
+	# frame: -8 x, -16 y, -24 z, -32 tmp
 	.text
 	.globl main
 main:
 	pushq %rbp
 	movq %rsp, %rbp
-	subq $32, %rsp			# multiple of 16: stack stays aligned
+	subq $32, %rsp			# align 16
 
 	# print (let x = 3 in x * x)
 	movq $3, -8(%rbp)		# x = 3
@@ -28,7 +23,7 @@ main:
 
 	movq -8(%rbp), %rax		# x * y
 	imulq -16(%rbp), %rax
-	movq %rax, -32(%rbp)		# save the left operand = 18
+	movq %rax, -32(%rbp)		# left operand = 18
 
 	movq -8(%rbp), %rax		# let z = x + 3
 	addq $3, %rax
@@ -47,7 +42,7 @@ main:
 	popq %rbp
 	ret
 
-	# print_int: displays the integer passed in %rdi
+	# print_int(%rdi)
 print_int:
 	pushq %rbp
 	movq %rdi, %rsi

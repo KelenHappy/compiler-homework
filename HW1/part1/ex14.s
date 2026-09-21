@@ -1,7 +1,4 @@
-	# Question 1.4 -- global variables in the data segment
-	#   let x = 2
-	#   let y = x * x
-	#   print (y + x)          ->  6
+	# Q1.4 globals -> 6
 	.text
 	.globl main
 main:
@@ -22,7 +19,7 @@ main:
 	popq %rbp
 	ret
 
-	# print_int: displays the integer passed in %rdi
+	# print_int(%rdi)
 print_int:
 	pushq %rbp
 	movq %rdi, %rsi
