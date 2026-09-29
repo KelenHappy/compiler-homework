@@ -1,0 +1,18 @@
+# 減法左右順序（%rax 左、%rcx 右，放反會算成 3-10）
+print 10 - 3
+print 3 - 10
+print 1 - 2 - 3
+print 1 - (2 - 3)
+# 負數除法（沒有 cqto 會算錯）
+print -7 / 2
+print 100 / -7
+print (0 - 100) / (0 - 7)
+# 右傾巢狀（右邊會蓋掉 %rax，左邊必須先寄放）
+print 1 + (2 + (3 + (4 + (5 + (6 + (7 + 8))))))
+print 100 - (50 - (20 - (10 - 5)))
+# let 出現在右運算元（右邊會覆寫 %rax / %rcx）
+print 20 - (let x = 4 in x * (x - 1))
+set a = 5
+print a - (let a = 1 in a - 10)
+print (let x = 100 in x / (let y = 7 in x - y * 10))
+print a * a - (let b = a + 1 in b * b) / 3
